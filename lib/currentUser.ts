@@ -1,6 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { generateDepositWallet } from "@/lib/solana";
+import { ensureWalletExists } from "@/lib/wallet";
 
 export async function getCurrentUser() {
   try {
@@ -37,17 +37,8 @@ export async function getCurrentUser() {
       },
     });
 
-    // Generate deposit wallet
-    const { depositAddress } = generateDepositWallet();
-
-    // Create wallet automatically
-    await prisma.wallet.create({
-      data: {
-        userId: user.id,
-        balance: 0,
-        depositAddress,
-      },
-    });
+    // Create wallet (with deposit address) automatically
+    await ensureWalletExists(user.id);
 
     return user;
   } catch (error) {

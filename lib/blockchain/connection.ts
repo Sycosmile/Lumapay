@@ -1,8 +1,21 @@
-import { Connection, Commitment } from "@solana/web3.js";
+import {
+  Connection,
+  Commitment,
+  clusterApiUrl,
+} from "@solana/web3.js";
+
+// NOTE: this used to fall back to a hardcoded QuickNode devnet URL with an
+// embedded API key. That key was committed to the public repo and should be
+// rotated in the QuickNode dashboard regardless of this change. We now fall
+// back to the public Solana devnet endpoint instead of a private/paid one.
+if (!process.env.SOLANA_RPC_URL) {
+  console.warn(
+    "⚠️ SOLANA_RPC_URL is not set — falling back to the public Solana devnet RPC, which is rate-limited. Set SOLANA_RPC_URL in your .env for reliable use."
+  );
+}
 
 const RPC_URL =
-  process.env.SOLANA_RPC_URL ??
-  "https://snowy-responsive-mound.solana-devnet.quiknode.pro/d500f494dbf233f2e3909e3da8a5df8285d4a660/";
+  process.env.SOLANA_RPC_URL ?? clusterApiUrl("devnet");
 
 const COMMITMENT: Commitment = "confirmed";
 

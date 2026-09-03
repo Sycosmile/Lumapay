@@ -91,6 +91,13 @@ export async function PATCH(req: Request) {
   try {
     const { id } = await req.json();
 
+    if (!id || typeof id !== "string") {
+      return Response.json(
+        { error: "Missing or invalid card id" },
+        { status: 400 }
+      );
+    }
+
     const wallet = await getCurrentWallet();
 
     if (!wallet) {
