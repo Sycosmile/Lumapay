@@ -140,7 +140,7 @@ export async function processTransaction(
       console.log(
         "❌ Could not resolve ATA owner."
       );
-      return;
+      continue;
     }
 
     console.log(
@@ -158,7 +158,7 @@ export async function processTransaction(
       console.log(
         `❌ No wallet found for owner ${owner}`
       );
-      return;
+      continue;
     }
 
     console.log(
@@ -176,7 +176,7 @@ export async function processTransaction(
       console.log(
         `⚠️ Deposit ${signature} already processed.`
       );
-      return;
+      continue;
     }
 
     console.log("Amount fields:");
