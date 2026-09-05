@@ -10,8 +10,13 @@ let started = false;
 // refresh below instead of being missed forever.
 const subscribedWallets = new Set<string>();
 
-// Prevent duplicate processing of the same signature
+// Signatures that have been successfully processed.
 const processedSignatures = new Set<string>();
+
+// Signatures currently being processed.
+// This prevents duplicate concurrent processing while still allowing
+// failed transactions to be retried.
+const processingSignatures = new Set<string>();
 
 // How often to check for newly created wallets that need a subscription.
 const REFRESH_INTERVAL_MS = 30_000;
@@ -46,7 +51,11 @@ function subscribeToWallet(depositAddress: string) {
           return;
         }
 
-        processedSignatures.add(signature);
+        if (processingSignatures.has(signature)) {
+          return;
+        }
+
+        processingSignatures.add(signature);
 
         console.log("");
         console.log(
@@ -62,7 +71,14 @@ function subscribeToWallet(depositAddress: string) {
           `Signature: ${signature}`
         );
 
-        await processTransaction(signature);
+        try {
+          await processTransaction(signature);
+          processedSignatures.add(signature);
+        } finally {
+          // Always clear the in-flight marker, success or failure, so a
+          // failed transaction isn't permanently stuck and can be retried.
+          processingSignatures.delete(signature);
+        }
       } catch (error) {
         console.error(
           "❌ Deposit listener error:",
