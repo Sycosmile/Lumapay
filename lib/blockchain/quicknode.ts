@@ -4,10 +4,7 @@ import { Connection, ParsedTransactionWithMeta } from "@solana/web3.js";
 const DEFAULT_MAX_SKEW_SECONDS = 300;
 
 function timingSafeHexEqual(a: string, b: string) {
-  if (!/^[0-9a-f]+$/i.test(a) || !/^[0-9a-f]+$/i.test(b) || a.length !== b.length) {
-    return false;
-  }
-
+  if (!/^[0-9a-f]+$/i.test(a) || !/^[0-9a-f]+$/i.test(b) || a.length !== b.length) return false;
   return crypto.timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
 }
 
@@ -20,17 +17,15 @@ export function verifyQuickNodeSignature(
 ) {
   if (!secret || !nonce || !timestamp || !signature) return false;
 
-  const timestampMs = Number(timestamp);
-  if (!Number.isFinite(timestampMs)) return false;
+  const timestampValue = Number(timestamp);
+  if (!Number.isFinite(timestampValue)) return false;
 
-  const normalizedTimestamp = timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs;
+  const timestampMs = timestampValue < 10_000_000_000 ? timestampValue * 1000 : timestampValue;
   const maxSkew = Number(process.env.QUICKNODE_WEBHOOK_MAX_SKEW_SECONDS ?? DEFAULT_MAX_SKEW_SECONDS);
-
-  if (Math.abs(Date.now() - normalizedTimestamp) > maxSkew * 1000) return false;
+  if (!Number.isFinite(maxSkew) || Math.abs(Date.now() - timestampMs) > maxSkew * 1000) return false;
 
   const signedPayload = `${nonce}${timestamp}${payload}`;
   const expected = crypto.createHmac("sha256", secret).update(signedPayload, "utf8").digest("hex");
-
   return timingSafeHexEqual(expected, signature.trim());
 }
 
@@ -41,12 +36,10 @@ export function getSolanaConnection() {
 }
 
 export function getSupportedMints() {
-  const mints = [
-    [process.env.SOLANA_USDC_MINT, "USDC"],
-    [process.env.SOLANA_USDT_MINT, "USDT"],
-  ] as const;
-
-  return new Map(mints.filter(([mint]) => Boolean(mint)) as Array<[string, string]>);
+  const supported = new Map<string, string>();
+  if (process.env.SOLANA_USDC_MINT) supported.set(process.env.SOLANA_USDC_MINT, "USDC");
+  if (process.env.SOLANA_USDT_MINT) supported.set(process.env.SOLANA_USDT_MINT, "USDT");
+  return supported;
 }
 
 export function extractSignatures(payload: unknown): string[] {
@@ -61,16 +54,18 @@ export function extractSignatures(payload: unknown): string[] {
 
   const visit = (value: unknown) => {
     if (!value || typeof value !== "object") return;
-
     if (Array.isArray(value)) {
       value.forEach(visit);
       return;
     }
 
     for (const [key, child] of Object.entries(value)) {
-      if (signatureKeys.has(key) && typeof child === "string" && child.length >= 80) {
-        found.add(child);
+      if (key === "signatures" && Array.isArray(child)) {
+        child.forEach((item) => {
+          if (typeof item === "string" && item.length >= 80) found.add(item);
+        });
       }
+      if (signatureKeys.has(key) && typeof child === "string" && child.length >= 80) found.add(child);
       visit(child);
     }
   };
@@ -124,7 +119,9 @@ export async function verifySolanaDeposit(
     const token = supportedMints.get(after.mint);
     if (delta <= 0n || !token) continue;
 
-    const wallet = wallets.find((candidate) => candidate.depositAddress && candidate.depositAddress === after.owner);
+    const wallet = wallets.find(
+      (candidate) => candidate.depositAddress && candidate.depositAddress === after.owner,
+    );
     if (!wallet) continue;
 
     const amount = Number(delta) / 10 ** after.decimals;
