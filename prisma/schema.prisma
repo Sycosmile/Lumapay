@@ -7,70 +7,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum CardStatus {
+  ACTIVE
+  FROZEN
+  TERMINATED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum TransactionType {
+  PAYMENT
+  DEPOSIT
+  WITHDRAWAL
+  REFUND
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
-  createdAt DateTime @default(now())
   clerkId   String   @unique
-  wallet    Wallet?
+  createdAt DateTime @default(now())
+
+  wallet Wallet?
 }
 
 model Wallet {
-  id             String         @id @default(cuid())
-  userId         String         @unique
-  balance        Float          @default(0)
-  depositAddress String?        @unique
-  cards          Card[]
-  deposits       Deposit[]
-  subscriptions  Subscription[]
-  transactions   Transaction[]
-  user           User           @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  balance        Float    @default(0)
+  depositAddress String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id])
+  cards         Card[]
+  deposits      Deposit[]
+  subscriptions Subscription[]
+  transactions  Transaction[]
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   walletId    String
   amount      Float
-  fee         Float
+  fee         Float           @default(0)
   description String
-  createdAt   DateTime @default(now())
-  type        String   @default("PAYMENT")
-  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  type        TransactionType @default(PAYMENT)
+  createdAt   DateTime        @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   walletId  String
   type      String
   name      String
   amount    Float
-  status    String   @default("ACTIVE")
+  status    SubscriptionStatus @default(ACTIVE)
   nextBill  DateTime
-  createdAt DateTime @default(now())
-  wallet    Wallet   @relation(fields: [walletId], references: [id])
+  createdAt DateTime           @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
 }
 
 model Card {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   walletId   String
   holderName String
   cardNumber String
   expiry     String
   cvv        String
   brand      String
-  status     String   @default("ACTIVE")
-  frozen     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  wallet     Wallet   @relation(fields: [walletId], references: [id])
+  status     CardStatus @default(ACTIVE)
+  frozen     Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
 }
 
 model Deposit {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   walletId  String
   token     String
   amount    Float
-  createdAt DateTime @default(now())
-  signature String   @unique
-  wallet    Wallet   @relation(fields: [walletId], references: [id])
+  signature String        @unique
+  status    DepositStatus @default(CONFIRMED)
+  blockTime DateTime?
+  createdAt DateTime      @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
 }
