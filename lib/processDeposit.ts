@@ -5,6 +5,7 @@ type ProcessDepositInput = {
   amount: number;
   token: string;
   signature: string;
+  blockTime?: Date | null;
 };
 
 export async function processDeposit({
@@ -12,18 +13,14 @@ export async function processDeposit({
   amount,
   token,
   signature,
+  blockTime = null,
 }: ProcessDepositInput) {
   return prisma.$transaction(async (tx) => {
-    // Prevent duplicate processing
     const existing = await tx.deposit.findUnique({
-      where: {
-        signature,
-      },
+      where: { signature },
     });
 
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
     const deposit = await tx.deposit.create({
       data: {
@@ -31,17 +28,25 @@ export async function processDeposit({
         amount,
         token,
         signature,
+        status: "CONFIRMED",
+        blockTime,
       },
     });
 
     await tx.wallet.update({
-      where: {
-        id: walletId,
-      },
+      where: { id: walletId },
       data: {
-        balance: {
-          increment: amount,
-        },
+        balance: { increment: amount },
+      },
+    });
+
+    await tx.transaction.create({
+      data: {
+        walletId,
+        amount,
+        fee: 0,
+        type: "DEPOSIT",
+        description: `${token} deposit confirmed (${signature.slice(0, 8)}...)`,
       },
     });
 
