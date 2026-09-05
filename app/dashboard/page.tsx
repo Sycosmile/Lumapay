@@ -54,7 +54,14 @@ export default async function Dashboard() {
     },
   });
 
-  const chartData = [...transactions]
+  // Deposits add funds to the wallet — they aren't spending, so spending
+  // analytics (chart, totals, averages) should only look at actual
+  // payments, not the combined activity feed.
+  const payments = transactions.filter(
+    (tx) => tx.type === "PAYMENT"
+  );
+
+  const chartData = [...payments]
     .reverse()
     .map((tx) => ({
       date: new Date(tx.createdAt).toLocaleDateString("en-US", {
@@ -64,24 +71,24 @@ export default async function Dashboard() {
       amount: tx.amount,
     }));
 
-  const totalSpent = transactions.reduce(
+  const totalSpent = payments.reduce(
     (sum, tx) => sum + tx.amount,
     0
   );
 
-  const totalFees = transactions.reduce(
+  const totalFees = payments.reduce(
     (sum, tx) => sum + tx.fee,
     0
   );
 
   const averagePayment =
-    transactions.length > 0
-      ? totalSpent / transactions.length
+    payments.length > 0
+      ? totalSpent / payments.length
       : 0;
 
   const biggestPayment =
-    transactions.length > 0
-      ? Math.max(...transactions.map((t) => t.amount))
+    payments.length > 0
+      ? Math.max(...payments.map((t) => t.amount))
       : 0;
 
   return (
@@ -270,8 +277,15 @@ export default async function Dashboard() {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-red-400 font-semibold">
-                    -${t.amount.toFixed(2)}
+                  <p
+                    className={`font-semibold ${
+                      t.type === "DEPOSIT"
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    {t.type === "DEPOSIT" ? "+" : "-"}$
+                    {t.amount.toFixed(2)}
                   </p>
 
                   <p className="text-xs text-gray-500">
