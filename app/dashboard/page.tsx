@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentWallet } from "@/lib/currentUser";
+import { computeSpendingAnalytics } from "@/lib/analytics";
 import SpendingChart from "@/components/SpendingChart";
 import {
   Wallet,
@@ -54,42 +55,13 @@ export default async function Dashboard() {
     },
   });
 
-  // Deposits add funds to the wallet — they aren't spending, so spending
-  // analytics (chart, totals, averages) should only look at actual
-  // payments, not the combined activity feed.
-  const payments = transactions.filter(
-    (tx) => tx.type === "PAYMENT"
-  );
-
-  const chartData = [...payments]
-    .reverse()
-    .map((tx) => ({
-      date: new Date(tx.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      }),
-      amount: tx.amount,
-    }));
-
-  const totalSpent = payments.reduce(
-    (sum, tx) => sum + tx.amount,
-    0
-  );
-
-  const totalFees = payments.reduce(
-    (sum, tx) => sum + tx.fee,
-    0
-  );
-
-  const averagePayment =
-    payments.length > 0
-      ? totalSpent / payments.length
-      : 0;
-
-  const biggestPayment =
-    payments.length > 0
-      ? Math.max(...payments.map((t) => t.amount))
-      : 0;
+  const {
+    chartData,
+    totalSpent,
+    totalFees,
+    averagePayment,
+    biggestPayment,
+  } = computeSpendingAnalytics(transactions);
 
   return (
     <div className="space-y-8">
