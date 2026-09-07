@@ -1,13 +1,16 @@
+import { Prisma, prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type ProcessDepositInput = {
   walletId: string;
-  amount: number;
+  amount: string;
   token: string;
   signature: string;
   blockTime?: Date | null;
 };
+
+const MAX_TRANSACTION_RETRIES = 3;
 
 export async function processDeposit({
   walletId,
