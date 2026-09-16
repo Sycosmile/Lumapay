@@ -110,7 +110,7 @@ export default async function DepositPage() {
       <DepositHistory
         deposits={deposits.map((deposit) => ({
           id: deposit.id,
-          amount: deposit.amount,
+          amount: Number(deposit.amount),
           status: deposit.status.toLowerCase() as
             | "pending"
             | "confirmed"

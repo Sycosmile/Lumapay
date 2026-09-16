@@ -1,4 +1,3 @@
-import { Prisma, prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -10,8 +9,6 @@ type ProcessDepositInput = {
   blockTime?: Date | null;
 };
 
-const MAX_TRANSACTION_RETRIES = 3;
-
 export async function processDeposit({
   walletId,
   amount,
@@ -19,22 +16,31 @@ export async function processDeposit({
   signature,
   blockTime = null,
 }: ProcessDepositInput) {
-  if (!Number.isFinite(amount) || amount <= 0) {
+  const numericAmount = Number(amount);
+
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     throw new Error("Invalid deposit amount");
   }
 
+  const decimalAmount = new Prisma.Decimal(amount);
+
   try {
     return await prisma.$transaction(async (tx) => {
+      // Prevent duplicate deposits from crediting the wallet twice.
       const existing = await tx.deposit.findUnique({
-        where: { signature },
+        where: {
+          signature,
+        },
       });
 
-      if (existing) return existing;
+      if (existing) {
+        return existing;
+      }
 
       const deposit = await tx.deposit.create({
         data: {
           walletId,
-          amount,
+          amount: decimalAmount,
           token,
           signature,
           status: "CONFIRMED",
@@ -43,17 +49,21 @@ export async function processDeposit({
       });
 
       await tx.wallet.update({
-        where: { id: walletId },
+        where: {
+          id: walletId,
+        },
         data: {
-          balance: { increment: amount },
+          balance: {
+            increment: decimalAmount,
+          },
         },
       });
 
       await tx.transaction.create({
         data: {
           walletId,
-          amount,
-          fee: 0,
+          amount: decimalAmount,
+          fee: new Prisma.Decimal(0),
           type: "DEPOSIT",
           description: `${token} deposit confirmed (${signature.slice(0, 8)}...)`,
         },
@@ -69,7 +79,9 @@ export async function processDeposit({
       error.code === "P2002"
     ) {
       const existing = await prisma.deposit.findUnique({
-        where: { signature },
+        where: {
+          signature,
+        },
       });
 
       if (existing) {
