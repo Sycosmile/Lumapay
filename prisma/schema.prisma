@@ -17,18 +17,17 @@ model User {
 }
 
 model Wallet {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  balance        Decimal  @default(0) @db.Decimal(30, 6)
-  depositAddress String?  @unique
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  user          User           @relation(fields: [userId], references: [id])
-  cards         Card[]
-  deposits      Deposit[]
-  subscriptions Subscription[]
-  transactions  Transaction[]
+  id             String         @id @default(cuid())
+  userId         String         @unique
+  balance        Decimal        @default(0) @db.Decimal(30, 6)
+  depositAddress String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  cards          Card[]
+  deposits       Deposit[]
+  subscriptions  Subscription[]
+  transactions   Transaction[]
+  user           User           @relation(fields: [userId], references: [id])
 }
 
 model Transaction {
@@ -39,8 +38,7 @@ model Transaction {
   description String
   type        TransactionType @default(PAYMENT)
   createdAt   DateTime        @default(now())
-
-  wallet Wallet @relation(fields: [walletId], references: [id])
+  wallet      Wallet          @relation(fields: [walletId], references: [id])
 }
 
 model Subscription {
@@ -52,8 +50,7 @@ model Subscription {
   status    SubscriptionStatus @default(ACTIVE)
   nextBill  DateTime
   createdAt DateTime           @default(now())
-
-  wallet Wallet @relation(fields: [walletId], references: [id])
+  wallet    Wallet             @relation(fields: [walletId], references: [id])
 }
 
 model Card {
@@ -67,8 +64,7 @@ model Card {
   status     CardStatus @default(ACTIVE)
   frozen     Boolean    @default(false)
   createdAt  DateTime   @default(now())
-
-  wallet Wallet @relation(fields: [walletId], references: [id])
+  wallet     Wallet     @relation(fields: [walletId], references: [id])
 }
 
 model Deposit {
@@ -80,8 +76,7 @@ model Deposit {
   status    DepositStatus @default(CONFIRMED)
   blockTime DateTime?
   createdAt DateTime      @default(now())
-
-  wallet Wallet @relation(fields: [walletId], references: [id])
+  wallet    Wallet        @relation(fields: [walletId], references: [id])
 }
 
 enum DepositStatus {
