@@ -1,0 +1,2 @@
+ALTER TABLE "Card"
+  DROP COLUMN "cvv";
