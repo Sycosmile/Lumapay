@@ -6,6 +6,7 @@ type ProcessDepositInput = {
   amount: string;
   token: string;
   signature: string;
+  transferIndex: number;
   blockTime?: Date | null;
 };
 
@@ -14,6 +15,7 @@ export async function processDeposit({
   amount,
   token,
   signature,
+  transferIndex,
   blockTime = null,
 }: ProcessDepositInput) {
   const numericAmount = Number(amount);
@@ -26,16 +28,16 @@ export async function processDeposit({
 
   try {
     return await prisma.$transaction(async (tx) => {
-      // Prevent duplicate deposits from crediting the wallet twice.
       const existing = await tx.deposit.findUnique({
         where: {
-          signature,
+          signature_transferIndex: {
+            signature,
+            transferIndex,
+          },
         },
       });
 
-      if (existing) {
-        return existing;
-      }
+      if (existing) return existing;
 
       const deposit = await tx.deposit.create({
         data: {
@@ -43,20 +45,15 @@ export async function processDeposit({
           amount: decimalAmount,
           token,
           signature,
+          transferIndex,
           status: "CONFIRMED",
           blockTime,
         },
       });
 
       await tx.wallet.update({
-        where: {
-          id: walletId,
-        },
-        data: {
-          balance: {
-            increment: decimalAmount,
-          },
-        },
+        where: { id: walletId },
+        data: { balance: { increment: decimalAmount } },
       });
 
       await tx.transaction.create({
@@ -65,28 +62,27 @@ export async function processDeposit({
           amount: decimalAmount,
           fee: new Prisma.Decimal(0),
           type: "DEPOSIT",
-          description: `${token} deposit confirmed (${signature.slice(0, 8)}...)`,
+          description: `${token} deposit confirmed (${signature.slice(0, 8)}... / transfer ${transferIndex})`,
         },
       });
 
       return deposit;
     });
   } catch (error) {
-    // Deposit.signature is unique.
-    // If two webhook deliveries race, only one should credit the wallet.
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
       const existing = await prisma.deposit.findUnique({
         where: {
-          signature,
+          signature_transferIndex: {
+            signature,
+            transferIndex,
+          },
         },
       });
 
-      if (existing) {
-        return existing;
-      }
+      if (existing) return existing;
     }
 
     throw error;
