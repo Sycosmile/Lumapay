@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateDepositWallet } from "@/lib/solana";
+import { encryptSecretKey } from "@/lib/walletCrypto";
 
 /**
  * Finds the wallet for a given user, creating it (and/or backfilling a
@@ -17,13 +18,14 @@ export async function ensureWalletExists(userId: string) {
   });
 
   if (!wallet) {
-    const { depositAddress } = generateDepositWallet();
+    const { depositAddress, secretKey } = generateDepositWallet();
 
     wallet = await prisma.wallet.create({
       data: {
         userId,
         balance: 0,
         depositAddress,
+        encryptedSecretKey: encryptSecretKey(secretKey),
       },
       include: {
         user: true,
@@ -36,7 +38,7 @@ export async function ensureWalletExists(userId: string) {
   // Existing wallet without a deposit address (e.g. created before
   // deposit wallets existed) — backfill one.
   if (!wallet.depositAddress) {
-    const { depositAddress } = generateDepositWallet();
+    const { depositAddress, secretKey } = generateDepositWallet();
 
     wallet = await prisma.wallet.update({
       where: {
@@ -44,6 +46,7 @@ export async function ensureWalletExists(userId: string) {
       },
       data: {
         depositAddress,
+        encryptedSecretKey: encryptSecretKey(secretKey),
       },
       include: {
         user: true,
