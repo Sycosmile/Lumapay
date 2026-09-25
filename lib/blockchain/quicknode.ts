@@ -108,11 +108,14 @@ export async function verifySolanaDeposit(
 
   if (!transaction?.meta || transaction.meta.err) return null;
 
-  const pre = new Map<string, bigint>();
+  const pre = new Map<string, { amount: bigint; mint?: string }>();
   const post = new Map<string, { amount: bigint; decimals: number; mint: string; owner?: string }>();
 
   for (const balance of transaction.meta.preTokenBalances ?? []) {
-    pre.set(balance.accountIndex.toString(), BigInt(balance.uiTokenAmount.amount));
+    pre.set(balance.accountIndex.toString(), {
+      amount: BigInt(balance.uiTokenAmount.amount),
+      mint: balance.mint,
+    });
   }
 
   for (const balance of transaction.meta.postTokenBalances ?? []) {
@@ -124,8 +127,20 @@ export async function verifySolanaDeposit(
     });
   }
 
+  const outflows = new Map<string, bigint>();
+
+  for (const [accountIndex, before] of pre) {
+    const after = post.get(accountIndex);
+    if (!after || after.mint !== before.mint) continue;
+
+    const delta = after.amount - before.amount;
+    if (delta < 0n) {
+      outflows.set(after.mint, (outflows.get(after.mint) ?? 0n) + -delta);
+    }
+  }
+
   for (const [accountIndex, after] of post) {
-    const before = pre.get(accountIndex) ?? 0n;
+    const before = pre.get(accountIndex)?.amount ?? 0n;
     const delta = after.amount - before;
     const token = supportedMints.get(after.mint);
     if (delta <= 0n || !token) continue;
@@ -136,6 +151,8 @@ export async function verifySolanaDeposit(
       (candidate) => candidate.depositAddress && candidate.depositAddress === after.owner,
     );
     if (!wallet) continue;
+
+    if ((outflows.get(after.mint) ?? 0n) < delta) continue;
 
     return {
       walletId: wallet.id,
