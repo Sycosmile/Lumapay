@@ -109,11 +109,14 @@ export async function verifySolanaDeposits(
 
   if (!transaction?.meta || transaction.meta.err) return [];
 
-  const pre = new Map<string, bigint>();
+  const pre = new Map<number, { amount: bigint; mint: string }>();
   const post = new Map<number, { amount: bigint; decimals: number; mint: string; owner?: string }>();
 
   for (const balance of transaction.meta.preTokenBalances ?? []) {
-    pre.set(balance.accountIndex.toString(), BigInt(balance.uiTokenAmount.amount));
+    pre.set(balance.accountIndex, {
+      amount: BigInt(balance.uiTokenAmount.amount),
+      mint: balance.mint,
+    });
   }
 
   for (const balance of transaction.meta.postTokenBalances ?? []) {
@@ -125,13 +128,26 @@ export async function verifySolanaDeposits(
     });
   }
 
+  const outflows = new Map<string, bigint>();
+  for (const [accountIndex, before] of pre) {
+    const after = post.get(accountIndex);
+    if (after && after.mint !== before.mint) continue;
+
+    const afterAmount = after?.amount ?? 0n;
+    const delta = afterAmount - before.amount;
+    if (delta < 0n) {
+      outflows.set(before.mint, (outflows.get(before.mint) ?? 0n) + -delta);
+    }
+  }
+
   const verified: VerifiedTransfer[] = [];
 
   for (const [accountIndex, after] of post) {
-    const before = pre.get(accountIndex.toString()) ?? 0n;
+    const before = pre.get(accountIndex)?.amount ?? 0n;
     const delta = after.amount - before;
     const token = supportedMints.get(after.mint);
     if (delta <= 0n || !token || after.decimals !== SUPPORTED_TOKEN_DECIMALS) continue;
+    if ((outflows.get(after.mint) ?? 0n) < delta) continue;
 
     const wallet = wallets.find(
       (candidate) => candidate.depositAddress && candidate.depositAddress === after.owner,
