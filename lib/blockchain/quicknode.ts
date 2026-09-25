@@ -85,18 +85,19 @@ export function extractSignatures(payload: unknown): string[] {
   return [...found];
 }
 
-type VerifiedTransfer = {
+export type VerifiedTransfer = {
   walletId: string;
   amount: string;
   token: string;
   signature: string;
+  transferIndex: number;
   blockTime: Date | null;
 };
 
-export async function verifySolanaDeposit(
+export async function verifySolanaDeposits(
   signature: string,
   wallets: Array<{ id: string; depositAddress: string | null }>,
-): Promise<VerifiedTransfer | null> {
+): Promise<VerifiedTransfer[]> {
   const connection = getSolanaConnection();
   const supportedMints = getSupportedMints();
   if (supportedMints.size === 0) throw new Error("No supported Solana token mints are configured");
@@ -106,17 +107,20 @@ export async function verifySolanaDeposit(
     maxSupportedTransactionVersion: 0,
   });
 
-  if (!transaction?.meta || transaction.meta.err) return null;
+  if (!transaction?.meta || transaction.meta.err) return [];
 
-  const pre = new Map<string, bigint>();
-  const post = new Map<string, { amount: bigint; decimals: number; mint: string; owner?: string }>();
+  const pre = new Map<number, { amount: bigint; mint: string }>();
+  const post = new Map<number, { amount: bigint; decimals: number; mint: string; owner?: string }>();
 
   for (const balance of transaction.meta.preTokenBalances ?? []) {
-    pre.set(balance.accountIndex.toString(), BigInt(balance.uiTokenAmount.amount));
+    pre.set(balance.accountIndex, {
+      amount: BigInt(balance.uiTokenAmount.amount),
+      mint: balance.mint,
+    });
   }
 
   for (const balance of transaction.meta.postTokenBalances ?? []) {
-    post.set(balance.accountIndex.toString(), {
+    post.set(balance.accountIndex, {
       amount: BigInt(balance.uiTokenAmount.amount),
       decimals: balance.uiTokenAmount.decimals,
       mint: balance.mint,
@@ -124,27 +128,41 @@ export async function verifySolanaDeposit(
     });
   }
 
+  const outflows = new Map<string, bigint>();
+  for (const [accountIndex, before] of pre) {
+    const after = post.get(accountIndex);
+    if (after && after.mint !== before.mint) continue;
+
+    const afterAmount = after?.amount ?? 0n;
+    const delta = afterAmount - before.amount;
+    if (delta < 0n) {
+      outflows.set(before.mint, (outflows.get(before.mint) ?? 0n) + -delta);
+    }
+  }
+
+  const verified: VerifiedTransfer[] = [];
+
   for (const [accountIndex, after] of post) {
-    const before = pre.get(accountIndex) ?? 0n;
+    const before = pre.get(accountIndex)?.amount ?? 0n;
     const delta = after.amount - before;
     const token = supportedMints.get(after.mint);
-    if (delta <= 0n || !token) continue;
-
-    if (after.decimals !== SUPPORTED_TOKEN_DECIMALS) continue;
+    if (delta <= 0n || !token || after.decimals !== SUPPORTED_TOKEN_DECIMALS) continue;
+    if ((outflows.get(after.mint) ?? 0n) < delta) continue;
 
     const wallet = wallets.find(
       (candidate) => candidate.depositAddress && candidate.depositAddress === after.owner,
     );
     if (!wallet) continue;
 
-    return {
+    verified.push({
       walletId: wallet.id,
       amount: rawUnitsToDecimalString(delta, after.decimals),
       token,
       signature,
+      transferIndex: accountIndex,
       blockTime: transaction.blockTime ? new Date(transaction.blockTime * 1000) : null,
-    };
+    });
   }
 
-  return null;
+  return verified;
 }

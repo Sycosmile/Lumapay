@@ -68,15 +68,18 @@ model Card {
 }
 
 model Deposit {
-  id        String        @id @default(cuid())
-  walletId  String
-  token     String
-  amount    Decimal       @db.Decimal(30, 6)
-  signature String        @unique
-  status    DepositStatus @default(CONFIRMED)
-  blockTime DateTime?
-  createdAt DateTime      @default(now())
-  wallet    Wallet        @relation(fields: [walletId], references: [id])
+  id            String        @id @default(cuid())
+  walletId      String
+  token         String
+  amount        Decimal       @db.Decimal(30, 6)
+  signature     String
+  transferIndex Int           @default(0)
+  status        DepositStatus @default(CONFIRMED)
+  blockTime     DateTime?
+  createdAt     DateTime      @default(now())
+  wallet        Wallet        @relation(fields: [walletId], references: [id])
+
+  @@unique([signature, transferIndex])
 }
 
 enum DepositStatus {
