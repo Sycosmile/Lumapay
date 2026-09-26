@@ -14,7 +14,11 @@ export async function GET() {
   const wallet = await ensureWalletExists(user.id);
 
   return Response.json({
-    ...wallet,
+    id: wallet.id,
+    userId: wallet.userId,
     balance: wallet.balance.toString(),
+    depositAddress: wallet.depositAddress,
+    createdAt: wallet.createdAt,
+    updatedAt: wallet.updatedAt,
   });
 }
