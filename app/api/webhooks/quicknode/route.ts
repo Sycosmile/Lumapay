@@ -71,8 +71,14 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    message: "QuickNode webhook endpoint is live",
-  });
+  return NextResponse.json(
+    { success: false, error: "Method Not Allowed" },
+    {
+      status: 405,
+      headers: {
+        Allow: "POST",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
