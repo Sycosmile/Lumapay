@@ -46,7 +46,7 @@ model Subscription {
   walletId  String
   type      String
   name      String
-  amount    Float
+  amount    Decimal  @db.Decimal(30, 6)
   status    SubscriptionStatus @default(ACTIVE)
   nextBill  DateTime
   createdAt DateTime           @default(now())
