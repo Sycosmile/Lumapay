@@ -59,7 +59,6 @@ model Card {
   holderName String
   cardNumber String
   expiry     String
-  cvv        String
   brand      String
   status     CardStatus @default(ACTIVE)
   frozen     Boolean    @default(false)

@@ -1,12 +1,31 @@
+import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentWallet } from "@/lib/currentUser";
 
 export const dynamic = "force-dynamic";
 
 function randomDigits(length: number) {
-  return Array.from({ length }, () =>
-    Math.floor(Math.random() * 10)
-  ).join("");
+  return Array.from({ length }, () => randomInt(0, 10)).join("");
+}
+
+function toPublicCard(card: {
+  id: string;
+  holderName: string;
+  cardNumber: string;
+  expiry: string;
+  brand: string;
+  status: string;
+  frozen: boolean;
+}) {
+  return {
+    id: card.id,
+    holderName: card.holderName,
+    last4: card.cardNumber.slice(-4),
+    expiry: card.expiry,
+    brand: card.brand,
+    status: card.status,
+    frozen: card.frozen,
+  };
 }
 
 export async function GET() {
@@ -29,7 +48,7 @@ export async function GET() {
       },
     });
 
-    return Response.json(cards);
+    return Response.json(cards.map(toPublicCard));
   } catch (error) {
     console.error("GET /api/cards:", error);
 
@@ -58,7 +77,7 @@ export async function POST() {
     });
 
     if (existing) {
-      return Response.json(existing);
+      return Response.json(toPublicCard(existing));
     }
 
     const holderName =
@@ -71,12 +90,11 @@ export async function POST() {
         holderName,
         cardNumber: "4532" + randomDigits(12),
         expiry: "12/30",
-        cvv: randomDigits(3),
         brand: "VISA",
       },
     });
 
-    return Response.json(card);
+    return Response.json(toPublicCard(card));
   } catch (error) {
     console.error("POST /api/cards:", error);
 
@@ -131,7 +149,7 @@ export async function PATCH(req: Request) {
       },
     });
 
-    return Response.json(updated);
+    return Response.json(toPublicCard(updated));
   } catch (error) {
     console.error("PATCH /api/cards:", error);
 
