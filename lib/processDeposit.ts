@@ -16,9 +16,9 @@ export async function processDeposit({
   signature,
   blockTime = null,
 }: ProcessDepositInput) {
-  const numericAmount = Number(amount);
+  const decimalPattern = /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
 
-  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+  if (!decimalPattern.test(amount) || new Prisma.Decimal(amount).isZero()) {
     throw new Error("Invalid deposit amount");
   }
 
