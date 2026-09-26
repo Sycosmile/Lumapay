@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { verifySolanaDeposit } from "@/lib/blockchain/quicknode";
+import { verifySolanaDeposits } from "@/lib/blockchain/quicknode";
 import { processDeposit } from "@/lib/processDeposit";
 
 export async function processTransaction(signature: string) {
@@ -10,18 +10,21 @@ export async function processTransaction(signature: string) {
     select: { id: true, depositAddress: true },
   });
 
-  const verifiedDeposit = await verifySolanaDeposit(signature, wallets);
+  const verifiedDeposits = await verifySolanaDeposits(signature, wallets);
 
-  if (!verifiedDeposit) {
+  if (verifiedDeposits.length === 0) {
     console.log(`ℹ️ Transaction ${signature} was not a verified LumaPay deposit.`);
-    return null;
+    return [];
   }
 
-  const deposit = await processDeposit(verifiedDeposit);
+  const deposits = [];
+  for (const verifiedDeposit of verifiedDeposits) {
+    deposits.push(await processDeposit(verifiedDeposit));
 
-  console.log(
-    `💰 Verified ${verifiedDeposit.amount} ${verifiedDeposit.token} deposit for wallet ${verifiedDeposit.walletId}`,
-  );
+    console.log(
+      `💰 Verified ${verifiedDeposit.amount} ${verifiedDeposit.token} deposit for wallet ${verifiedDeposit.walletId} (transfer ${verifiedDeposit.transferIndex})`,
+    );
+  }
 
-  return deposit;
+  return deposits;
 }

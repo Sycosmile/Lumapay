@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   extractSignatures,
   verifyQuickNodeSignature,
-  verifySolanaDeposit,
+  verifySolanaDeposits,
 } from "@/lib/blockchain/quicknode";
 import { processDeposit } from "@/lib/processDeposit";
 
@@ -41,23 +41,26 @@ export async function POST(req: NextRequest) {
       select: { id: true, depositAddress: true },
     });
 
-    const results: Array<{ signature: string; status: string }> = [];
+    const results: Array<{ signature: string; status: string; processed: number }> = [];
 
     for (const signature of signatures) {
-      const verifiedDeposit = await verifySolanaDeposit(signature, wallets);
+      const verifiedDeposits = await verifySolanaDeposits(signature, wallets);
 
-      if (!verifiedDeposit) {
-        results.push({ signature, status: "ignored" });
+      if (verifiedDeposits.length === 0) {
+        results.push({ signature, status: "ignored", processed: 0 });
         continue;
       }
 
-      await processDeposit(verifiedDeposit);
-      results.push({ signature, status: "processed" });
+      for (const verifiedDeposit of verifiedDeposits) {
+        await processDeposit(verifiedDeposit);
+      }
+
+      results.push({ signature, status: "processed", processed: verifiedDeposits.length });
     }
 
     return NextResponse.json({
       success: true,
-      processed: results.filter((result) => result.status === "processed").length,
+      processed: results.reduce((total, result) => total + result.processed, 0),
       results,
     });
   } catch (error) {
@@ -68,11 +71,4 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({
-    success: true,
-    message: "QuickNode webhook endpoint is live",
-  });
 }
