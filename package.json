@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "prisma migrate deploy && prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test tests"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.12",
