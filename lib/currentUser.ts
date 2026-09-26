@@ -1,4 +1,5 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ensureWalletExists } from "@/lib/wallet";
 
@@ -28,14 +29,35 @@ export async function getCurrentUser() {
       return null;
     }
 
-    // Create Prisma user
-    user = await prisma.user.create({
-      data: {
-        clerkId: userId,
-        email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
-        name: `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim(),
-      },
-    });
+    try {
+      user = await prisma.user.create({
+        data: {
+          clerkId: userId,
+          email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
+          name: `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim(),
+        },
+      });
+    } catch (error) {
+      // Another concurrent request may have created the same Clerk user.
+      // Re-read the unique record instead of turning a successful sign-in
+      // into a transient unauthorized response.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        user = await prisma.user.findUnique({
+          where: {
+            clerkId: userId,
+          },
+        });
+
+        if (!user) {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
 
     // Create wallet (with deposit address) automatically
     await ensureWalletExists(user.id);
