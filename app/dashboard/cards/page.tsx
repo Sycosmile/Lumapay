@@ -7,19 +7,20 @@ import CardOverview from "@/components/CardOverview";
 
 export default async function CardsPage() {
   const wallet = await getCurrentWallet();
-  if (!wallet) {
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">
-        Unauthorized
-      </h1>
 
-      <p className="mt-2 text-gray-400">
-        Please sign in to view your cards.
-      </p>
-    </div>
-  );
-}
+  if (!wallet) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold">
+          Unauthorized
+        </h1>
+
+        <p className="mt-2 text-gray-400">
+          Please sign in to view your cards.
+        </p>
+      </div>
+    );
+  }
 
   const card = await prisma.card.findFirst({
     where: {
@@ -44,7 +45,17 @@ export default async function CardsPage() {
 
       {card ? (
         <>
-          <VirtualCard card={card} />
+          <VirtualCard
+            card={{
+              id: card.id,
+              holderName: card.holderName,
+              last4: card.cardNumber.slice(-4),
+              expiry: card.expiry,
+              brand: card.brand,
+              status: card.status,
+              frozen: card.frozen,
+            }}
+          />
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
             <div className="flex justify-between">
@@ -76,8 +87,8 @@ export default async function CardsPage() {
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-400">CVV</span>
-              <span>{card.cvv}</span>
+              <span className="text-gray-400">Card</span>
+              <span>•••• •••• •••• {card.cardNumber.slice(-4)}</span>
             </div>
           </div>
 
