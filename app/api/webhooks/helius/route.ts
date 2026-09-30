@@ -39,7 +39,10 @@ async function readBodyWithLimit(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const expectedAuth = process.env.HELIUS_WEBHOOK_AUTH_SECRET;
+  const expectedAuth =
+    process.env.HELIUS_WEBHOOK_AUTH_SECRET ??
+    process.env.WEBHOOK_AUTH_SECRET ??
+    process.env.HELIUS_API_KEY;
 
   if (!expectedAuth) {
     console.error("HELIUS_WEBHOOK_AUTH_SECRET is not configured");
