@@ -1,5 +1,4 @@
-ALTER TABLE "Deposit"
-  DROP CONSTRAINT "Deposit_signature_key";
+DROP INDEX "Deposit_signature_key";
 
 ALTER TABLE "Deposit"
   ADD COLUMN "transferIndex" INTEGER NOT NULL DEFAULT 0;
